@@ -1,7 +1,8 @@
 enchant()
 
 BEAR_IMG = 'chara1.png'
-ASSETS = []#[BEAR_IMG]
+MAP_IMG = 'map1.png'
+ASSETS = [BEAR_IMG, MAP_IMG]
 
 game = null
 timer = null
@@ -96,8 +97,14 @@ class TimerLabel extends NicoLabel
         @count = 0 if @count < 0
         @update()
 
+    getMinute: ->
+        Math.floor(@count / 60)
+
+    getSecond: ->
+        @count % 60
+
     getTime: ->
-        "#{padding(Math.floor(@count / 60))}:#{padding(@count % 60)}"
+        "#{padding(@getMinute())}:#{padding(@getSecond())}"
 
 MessageType = {
     Normal : {
@@ -145,21 +152,39 @@ window.onload = ->
         scene = game.rootScene
         scene.backgroundColor = '#0f0f0f'
 
+        FLOOR_SIZE = 16
+        for x in [0...game.width / FLOOR_SIZE]
+            for y in [0...game.height / FLOOR_SIZE]
+                grass = new Sprite(FLOOR_SIZE, FLOOR_SIZE)
+                grass.image = game.assets[MAP_IMG]
+                grass.frame = 1
+                grass.x = x * FLOOR_SIZE
+                grass.y = y * FLOOR_SIZE
+                add(grass)
+
+        bear = new Sprite(32, 32)
+        bear.image = game.assets[BEAR_IMG]
+        bear.x = game.width / 2
+        bear.y = game.height / 2
+        add(bear)
+
         timer = new TimerLabel(0, 0)
 
         life = new CountLabel(100, 0)
         life.label = 'Life : '
         life.count = 1
         
+        gameover = false
         scene.onenterframe = ->
             if game.frame % game.fps == 0
-                for i in [1..5]
+                for i in [0..timer.getMinute() + 1]
                     if rand(10) == 0
                         new StreamMessage('mmmmmmmmmmmm', MessageType.Illegal)
                     else
                         new StreamMessage('wwwwwwwwwwww', MessageType.Normal)
-            if life.count == 0
+            if life.count == 0 and not gameover
                 #game.end(timer.count, "再生時間 #{timer.getTime()}")
                 alert "ゲームオーバー\n再生時間 #{timer.getTime()}"
+                gameover = true
 
     game.start()
