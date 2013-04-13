@@ -28,6 +28,25 @@ remove = (inst) ->
 padding = (num) ->
     ('00' + num).substr(-2)
 
+class Bear extends Sprite
+    constructor: ->
+        super(32, 32)
+        @image = game.assets[BEAR_IMG]
+        @x = game.width / 2
+        @y = game.height / 2
+
+        @vx = 2
+        @vy = 2
+
+        add(@)
+
+    onenterframe: ->
+        @x += @vx
+        @y += @vy
+
+        @vx = -@vx unless 0 <= @x and @x < game.width
+        @vy = -@vy unless 0 <= @y and @y < game.height
+
 class NicoLabel extends Label
     constructor: (x, y, color = '#ffffff', fontSize = 20) ->
         super
@@ -162,11 +181,7 @@ window.onload = ->
                 grass.y = y * FLOOR_SIZE
                 add(grass)
 
-        bear = new Sprite(32, 32)
-        bear.image = game.assets[BEAR_IMG]
-        bear.x = game.width / 2
-        bear.y = game.height / 2
-        add(bear)
+        new Bear
 
         timer = new TimerLabel(0, 0)
 
