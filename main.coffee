@@ -27,13 +27,19 @@ remove = (inst) ->
 padding = (num) ->
     ('00' + num).substr(-2)
 
-class CountLabel extends Label
-    constructor: (x, y) ->
+class NicoLabel extends Label
+    constructor: (x, y, color = '#ffffff', fontSize = 20) ->
         super
         @x = x
         @y = y
-        @color = '#ffffff'
-        @font = 'bold 20px Arial'
+        @color = color
+        @font = "bold #{fontSize}px Arial"
+
+        add(@)
+
+class CountLabel extends NicoLabel
+    constructor: (x, y) ->
+        super(x, y)
 
         @_count = 0
 
@@ -45,20 +51,40 @@ class CountLabel extends Label
             @_count = c
             @text = "#{@label}#{@_count}"
 
+class ComboLabel extends NicoLabel
+    comboNum = 0
 
-class TimerLabel extends Label
+    lastComboFrame = 0
+
     constructor: (x, y) ->
-        super
-        @x = x
-        @y = y
-        @color = '#ffffff'
-        @font = 'bold 20px Arial'
+        super(x, y, '#fff100')
+        
+        comboNum = 0 if game.frame - lastComboFrame > game.fps
+        comboNum++
+
+        @text = "Combo #{comboNum}"
+
+        timer.addTime(comboNum * 10)
+
+        lastComboFrame = game.frame
+
+        @MAX_AGE = 30
+
+    onenterframe: ->
+        @y -= 1
+        @opacity = 1.0 - (@age / @MAX_AGE)
+
+        remove(@) if @age > @MAX_AGE
+
+class TimerLabel extends NicoLabel
+    constructor: (x, y) ->
+        super(x, y)
 
         @count = 0
         @update()
 
     update: ->
-        @text = "#{padding(Math.floor(@count / 60))}:#{padding(@count % 60)}"
+        @text = @getTime()
 
     onenterframe: ->
         if game.frame % game.fps == 0
@@ -70,6 +96,9 @@ class TimerLabel extends Label
         @count = 0 if @count < 0
         @update()
 
+    getTime: ->
+        "#{padding(Math.floor(@count / 60))}:#{padding(@count % 60)}"
+
 MessageType = {
     Normal : {
         color : '#ffffff'
@@ -77,35 +106,29 @@ MessageType = {
     }
     Illegal : {
         color : '#ff0000'
-        #ontouch : -> timer.addTime(30)
+        ontouch : (msg) ->
+            new ComboLabel(msg.x, msg.y)
         onleave : -> life.count -= 1
     }
 }
-class Message extends Label
-
-    constructor: (x, y, text, @msg_type) ->
-        super(text)
-        @x = x
-        @y = y
-
-        @color = @msg_type.color
-        @font = 'bold 40px Arial'
+class Message extends NicoLabel
+    constructor: (x, y, text, @msgType) ->
+        super(x, y, @msgType.color, 40)
+        @text = text
         #適当
         @width = 500
 
-        add(@)
-
     ontouchstart: (e) ->
-        @msg_type.ontouch?(@)
+        @msgType.ontouch?(@)
         remove(@)
 
     leave: ->
-        @msg_type.onleave?(@)
+        @msgType.onleave?(@)
         remove(@)
 
 class StreamMessage extends Message
-    constructor: (text, msg_type) ->
-        super(game.width, 0, text, msg_type)
+    constructor: (text, msgType) ->
+        super(game.width, 0, text, msgType)
         @vx = -rand(2, 10)
         @y = rand(game.height - 50)
 
@@ -122,12 +145,11 @@ window.onload = ->
         scene = game.rootScene
         scene.backgroundColor = '#0f0f0f'
 
-        scene.addChild(timer = new TimerLabel(0, 0))
+        timer = new TimerLabel(0, 0)
 
         life = new CountLabel(100, 0)
         life.label = 'Life : '
-        life.count = 10
-        scene.addChild(life)
+        life.count = 1
         
         scene.onenterframe = ->
             if game.frame % game.fps == 0
@@ -136,5 +158,8 @@ window.onload = ->
                         new StreamMessage('mmmmmmmmmmmm', MessageType.Illegal)
                     else
                         new StreamMessage('wwwwwwwwwwww', MessageType.Normal)
+            if life.count == 0
+                #game.end(timer.count, "再生時間 #{timer.getTime()}")
+                alert "ゲームオーバー\n再生時間 #{timer.getTime()}"
 
     game.start()
