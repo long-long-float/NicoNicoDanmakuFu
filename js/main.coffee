@@ -30,12 +30,14 @@ rand = (min, max) ->
         min = 0
     min = Math.floor(min)
     max = Math.floor(max)
-    min + Math.floor(Math.random() * max) % (max - min)
+    d = max - min
+    min + Math.floor(Math.random() * d) % d
 
 add = (inst) ->
     game.currentScene.addChild(inst)
 
 remove = (inst) ->
+    inst.onremove?()
     game.currentScene.removeChild(inst)
 
 padding = (num) ->
@@ -48,8 +50,8 @@ class Bear extends Sprite
         @x = game.width / 2
         @y = game.height / 2
 
-        @vx = 2
-        @vy = 2
+        @vx = rand(-2, 2)
+        @vy = rand(-2, 2)
 
         add(@)
 
@@ -102,7 +104,8 @@ class ComboLabel extends NicoLabel
 
         @setText("Combo #{comboNum}")
 
-        timer.addTime(comboNum * 10)
+        #timer.addTime(comboNum * 10)
+        timer.addTime(10)
 
         lastComboFrame = game.frame
 
@@ -178,19 +181,27 @@ class StreamMessage extends Message
         @leave() if @x + @width < 0
 
 class ShitaMessage extends Message
+    MAX_INDEX = 4
+    _index = 0
+
     constructor: (text, msgType) ->
         super(0, 0, text, msgType)
         @x = (game.width - @width) / 2
-        @y = game.height / 5 * 4
+        @y = game.height / 5 * (MAX_INDEX - _index)
+
+        _index = (_index + 1) % (MAX_INDEX + 1)
 
     onenterframe: ->
-        @leave() if @age > game.fps * 2
+        @leave() if @age > game.fps * 5
+
+    onremove: ->
+        _index = MAX_INDEX if --_index < 0
 
 window.onload = ->
     canvasContext = document.getElementById('dummyCanvas').getContext('2d')
 
     game = new Game(500, 400)
-    game.fps = 3
+    game.fps = 30
     game.preload(ASSETS)
 
     game.onload = ->
@@ -199,7 +210,7 @@ window.onload = ->
 
         scene.backgroundColor = '#00ff00'
 
-        new Bear
+        new Bear for i in [1..10]
 
         timer = new TimerLabel(0, 0)
 
@@ -208,18 +219,25 @@ window.onload = ->
         life.count = 1
         
         gameover = false
+        probabilities = [
+            [5, -> new StreamMessage('wwwwwwwwwwww', MessageType.Normal)]
+            [3, -> new StreamMessage('mmmmmmmmmmmm', MessageType.Illegal)]
+            [1, -> new ShitaMessage('熊大人気ｗｗｗ', MessageType.Normal)]
+            [1, -> new ShitaMessage('爆発汁', MessageType.Illegal)]
+        ]
         scene.onenterframe = ->
             if game.frame % game.fps == 0
-                for i in [0..timer.getMinute() + 1]
-                    n = rand(10)
-                    if n == 0 or n == 1
-                        new StreamMessage('mmmmmmmmmmmm', MessageType.Illegal)
-                    else if 2 <= n < 5
-                        new StreamMessage('wwwwwwwwwwww', MessageType.Normal)
-                    else if 5 <= n < 8
-                        new ShitaMessage('熊大人気ｗｗｗ', MessageType.Normal)
-                    else
-                        new ShitaMessage('爆発汁', MessageType.Illegal)
+                for i in [0..Math.min(timer.getMinute() + 1, 5)]
+                    sum = 0
+                    sum += p[0] for p in probabilities
+                    r = rand(sum) + 1
+                    sum = 0
+                    for p in  probabilities
+                        sum += p[0]
+                        if r <= sum
+                            p[1]()
+                            break
+
             if life.count == 0 and not gameover
                 #game.end(timer.count, "再生時間 #{timer.getTime()}")
                 alert "ゲームオーバー\n再生時間 #{timer.getTime()}"

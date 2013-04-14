@@ -36,13 +36,16 @@
   };
 
   rand = function(min, max) {
+    var d;
+
     if (max == null) {
       max = min;
       min = 0;
     }
     min = Math.floor(min);
     max = Math.floor(max);
-    return min + Math.floor(Math.random() * max) % (max - min);
+    d = max - min;
+    return min + Math.floor(Math.random() * d) % d;
   };
 
   add = function(inst) {
@@ -50,6 +53,9 @@
   };
 
   remove = function(inst) {
+    if (typeof inst.onremove === "function") {
+      inst.onremove();
+    }
     return game.currentScene.removeChild(inst);
   };
 
@@ -65,8 +71,8 @@
       this.image = game.assets[BEAR_IMG];
       this.x = game.width / 2;
       this.y = game.height / 2;
-      this.vx = 2;
-      this.vy = 2;
+      this.vx = rand(-2, 2);
+      this.vy = rand(-2, 2);
       add(this);
     }
 
@@ -150,7 +156,7 @@
       }
       comboNum++;
       this.setText("Combo " + comboNum);
-      timer.addTime(comboNum * 10);
+      timer.addTime(10);
       lastComboFrame = game.frame;
       this.MAX_AGE = 30;
     }
@@ -281,17 +287,30 @@
   })(Message);
 
   ShitaMessage = (function(_super) {
+    var MAX_INDEX, _index;
+
     __extends(ShitaMessage, _super);
+
+    MAX_INDEX = 4;
+
+    _index = 0;
 
     function ShitaMessage(text, msgType) {
       ShitaMessage.__super__.constructor.call(this, 0, 0, text, msgType);
       this.x = (game.width - this.width) / 2;
-      this.y = game.height / 5 * 4;
+      this.y = game.height / 5 * (MAX_INDEX - _index);
+      _index = (_index + 1) % (MAX_INDEX + 1);
     }
 
     ShitaMessage.prototype.onenterframe = function() {
-      if (this.age > game.fps * 2) {
+      if (this.age > game.fps * 5) {
         return this.leave();
+      }
+    };
+
+    ShitaMessage.prototype.onremove = function() {
+      if (--_index < 0) {
+        return _index = MAX_INDEX;
       }
     };
 
@@ -302,34 +321,60 @@
   window.onload = function() {
     canvasContext = document.getElementById('dummyCanvas').getContext('2d');
     game = new Game(500, 400);
-    game.fps = 3;
+    game.fps = 30;
     game.preload(ASSETS);
     game.onload = function() {
-      var gameover, scene;
+      var gameover, i, probabilities, scene, _i;
 
       scene = game.rootScene;
       scene.backgroundColor = '#0f0f0f';
       scene.backgroundColor = '#00ff00';
-      new Bear;
+      for (i = _i = 1; _i <= 10; i = ++_i) {
+        new Bear;
+      }
       timer = new TimerLabel(0, 0);
       life = new CountLabel(100, 0);
       life.label = 'Life : ';
       life.count = 1;
       gameover = false;
+      probabilities = [
+        [
+          5, function() {
+            return new StreamMessage('wwwwwwwwwwww', MessageType.Normal);
+          }
+        ], [
+          3, function() {
+            return new StreamMessage('mmmmmmmmmmmm', MessageType.Illegal);
+          }
+        ], [
+          1, function() {
+            return new ShitaMessage('熊大人気ｗｗｗ', MessageType.Normal);
+          }
+        ], [
+          1, function() {
+            return new ShitaMessage('爆発汁', MessageType.Illegal);
+          }
+        ]
+      ];
       return scene.onenterframe = function() {
-        var i, n, _i, _ref;
+        var p, r, sum, _j, _k, _l, _len, _len1, _ref;
 
         if (game.frame % game.fps === 0) {
-          for (i = _i = 0, _ref = timer.getMinute() + 1; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
-            n = rand(10);
-            if (n === 0 || n === 1) {
-              new StreamMessage('mmmmmmmmmmmm', MessageType.Illegal);
-            } else if ((2 <= n && n < 5)) {
-              new StreamMessage('wwwwwwwwwwww', MessageType.Normal);
-            } else if ((5 <= n && n < 8)) {
-              new ShitaMessage('熊大人気ｗｗｗ', MessageType.Normal);
-            } else {
-              new ShitaMessage('爆発汁', MessageType.Illegal);
+          for (i = _j = 0, _ref = Math.min(timer.getMinute() + 1, 5); 0 <= _ref ? _j <= _ref : _j >= _ref; i = 0 <= _ref ? ++_j : --_j) {
+            sum = 0;
+            for (_k = 0, _len = probabilities.length; _k < _len; _k++) {
+              p = probabilities[_k];
+              sum += p[0];
+            }
+            r = rand(sum) + 1;
+            sum = 0;
+            for (_l = 0, _len1 = probabilities.length; _l < _len1; _l++) {
+              p = probabilities[_l];
+              sum += p[0];
+              if (r <= sum) {
+                p[1]();
+                break;
+              }
             }
           }
         }
