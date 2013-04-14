@@ -2,7 +2,20 @@ enchant()
 
 BEAR_IMG = 'chara1.png'
 MAP_IMG = 'map1.png'
-ASSETS = [BEAR_IMG, MAP_IMG]
+ASSETS = [BEAR_IMG]
+
+canvasContext = null
+
+TextSize = {
+    Medium : {
+        charWidth : 6
+        fontSize : 20
+    }
+    Large : {
+        charWidth : 11
+        fontSize : 40
+    }
+}
 
 game = null
 timer = null
@@ -48,14 +61,19 @@ class Bear extends Sprite
         @vy = -@vy unless 0 <= @y and @y < game.height
 
 class NicoLabel extends Label
-    constructor: (x, y, color = '#ffffff', fontSize = 20) ->
+    constructor: (x, y, color = '#ffffff', @textSize = TextSize.Medium) ->
         super
         @x = x
         @y = y
         @color = color
-        @font = "bold #{fontSize}px Arial"
+        @font = "bold #{@textSize.fontSize}px Arial"
 
         add(@)
+
+    setText: (txt) ->
+        @text = txt
+        canvasContext.font = @font
+        @width = canvasContext.measureText(@text).width;
 
 class CountLabel extends NicoLabel
     constructor: (x, y) ->
@@ -69,7 +87,7 @@ class CountLabel extends NicoLabel
         get: -> @_count
         set: (c) ->
             @_count = c
-            @text = "#{@label}#{@_count}"
+            @setText("#{@label}#{@_count}")
 
 class ComboLabel extends NicoLabel
     comboNum = 0
@@ -82,7 +100,7 @@ class ComboLabel extends NicoLabel
         comboNum = 0 if game.frame - lastComboFrame > game.fps
         comboNum++
 
-        @text = "Combo #{comboNum}"
+        @setText("Combo #{comboNum}")
 
         timer.addTime(comboNum * 10)
 
@@ -104,7 +122,7 @@ class TimerLabel extends NicoLabel
         @update()
 
     update: ->
-        @text = @getTime()
+        @setText(@getTime())
 
     onenterframe: ->
         if game.frame % game.fps == 0
@@ -132,20 +150,17 @@ MessageType = {
     }
     Illegal : {
         color : '#ff0000'
-        ontouch : (msg) ->
-            new ComboLabel(msg.x, msg.y)
+        ontouch : (msg, e) -> new ComboLabel(e.x, e.y)
         onleave : -> life.count -= 1
     }
 }
 class Message extends NicoLabel
     constructor: (x, y, text, @msgType) ->
-        super(x, y, @msgType.color, 40)
-        @text = text
-        #適当
-        @width = 500
+        super(x, y, @msgType.color, TextSize.Large)
+        @setText(text)
 
     ontouchstart: (e) ->
-        @msgType.ontouch?(@)
+        @msgType.ontouch?(@, e)
         remove(@)
 
     leave: ->
@@ -162,24 +177,27 @@ class StreamMessage extends Message
         @x += @vx
         @leave() if @x + @width < 0
 
+class ShitaMessage extends Message
+    constructor: (text, msgType) ->
+        super(0, 0, text, msgType)
+        @x = (game.width - @width) / 2
+        @y = game.height / 5 * 4
+
+    onenterframe: ->
+        @leave() if @age > game.fps * 2
+
 window.onload = ->
+    canvasContext = document.getElementById('dummyCanvas').getContext('2d')
+
     game = new Game(500, 400)
-    game.fps = 30
+    game.fps = 3
     game.preload(ASSETS)
 
     game.onload = ->
         scene = game.rootScene
         scene.backgroundColor = '#0f0f0f'
 
-        FLOOR_SIZE = 16
-        for x in [0...game.width / FLOOR_SIZE]
-            for y in [0...game.height / FLOOR_SIZE]
-                grass = new Sprite(FLOOR_SIZE, FLOOR_SIZE)
-                grass.image = game.assets[MAP_IMG]
-                grass.frame = 1
-                grass.x = x * FLOOR_SIZE
-                grass.y = y * FLOOR_SIZE
-                add(grass)
+        scene.backgroundColor = '#00ff00'
 
         new Bear
 
@@ -193,10 +211,15 @@ window.onload = ->
         scene.onenterframe = ->
             if game.frame % game.fps == 0
                 for i in [0..timer.getMinute() + 1]
-                    if rand(10) == 0
+                    n = rand(10)
+                    if n == 0 or n == 1
                         new StreamMessage('mmmmmmmmmmmm', MessageType.Illegal)
-                    else
+                    else if 2 <= n < 5
                         new StreamMessage('wwwwwwwwwwww', MessageType.Normal)
+                    else if 5 <= n < 8
+                        new ShitaMessage('熊大人気ｗｗｗ', MessageType.Normal)
+                    else
+                        new ShitaMessage('爆発汁', MessageType.Illegal)
             if life.count == 0 and not gameover
                 #game.end(timer.count, "再生時間 #{timer.getTime()}")
                 alert "ゲームオーバー\n再生時間 #{timer.getTime()}"

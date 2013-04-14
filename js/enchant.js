@@ -2437,6 +2437,7 @@ enchant.Label = enchant.Class.create(enchant.Entity, {
         var labelWidth = this.width;
         var charWidth, amount, line, text, c, buf, increase, length;
         var bufWidth;
+
         if (this._splitText) {
             ctx.textBaseline = 'top';
             ctx.font = this.font;
